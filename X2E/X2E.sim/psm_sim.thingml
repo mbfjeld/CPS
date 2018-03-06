@@ -9,7 +9,7 @@ import "javatimer.thingml" // 160310
 // PSM specific messages
 
 thing fragment PSM_Msg {
-	message initialize(ts:Tellstick, did:Integer);
+	message initialize(ts:Tellstick);
 }
 
 // Here we relate to the given jstick library and kick-down to it from ThingML
@@ -25,7 +25,6 @@ property sensors: Integer
 
 thing fragment PSMSensorSingle includes PSMSensorSet {
 }
-
 
 // We need a way to initialize the Tellstick etc
 // This defines the central kick-down concept. The maven_dep stuff refers to an installed Maven project
@@ -45,6 +44,11 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	
 	/* properties defined here */
 	property ts : Tellstick // this is set in initialize() function
+	// property sensor_list:Sensor[25] removed at SIMULATION
+	// property device_list:Device[25] removed at SIMULATION
+	property i:Integer // runner index in list of sensors or devices
+	// property s:Sensor // temporary Sensor removed at SIMULATION
+	// property d:Device // temporary Device removed at SIMULATION
 	property model:String
 	property proto:String
 	property sid:Integer // sensor id
@@ -93,11 +97,9 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	function initialize() do
 	// kick-down initialization
 		ts = "Tellstick Duo" // SIMULATION	
-		
-		
 
-		to_T1!initialize(ts, did)
-		to_onoff1!initialize(ts, did)
+		to_T1!initialize(ts)
+		to_onoff1!initialize(ts)
 		
 		observe_sensors()
 		observe_devices()
@@ -203,38 +205,165 @@ thing ThermometerSet includes PSMSensorSet,TemperatureMsg, GeneralMsg, PSM_Msg, 
 	}
 } // ThermometerSet
 
-
-
 thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
-	provided port require_val {receives SwitchOn, SwitchOff}
+	provided port require_val {receives SwitchOn, SwitchOff, add_device}
 	provided port initial {receives initialize}
 	required port show_val {sends SwitchOn, SwitchOff}
 	
 	property ts:Tellstick // kick-down 
+	property onoffswitches:Integer[25] // Identifiers of the onoffswitches in the set
+	property last_onoff:Integer = 0 // number of onoff switches in the set 
+	
+	// SIMULATION
+	property poweron:Boolean[25] // SIMULATION false=OFF true=ON for corresponding switches
+	
+	property i:Integer // runner index in list
 	property did:Integer // temporary device id
+	// property d:Device // temporary device removed at SIMULATION
+	property mth:Long // temporary methods
+	property found:Boolean // temporary boolean used in while loop
+	property status:Long // of either ON or OFF not very reliable since no real result is returned
 	
 	statechart behaviorOnOffSet init Init {
 		state Init {
 			transition -> Idle
 			event initial: initial?initialize
 			action do
-				did = initial.did
 				ts = initial.ts
 			end
 		}
 		state Idle {
 			transition -> Idle
+			event add_dev: require_val?add_device
+			action do
+				did=add_dev.did
+				
+				onoffswitches[last_onoff]=did
+				last_onoff = last_onoff+1
+			end
+			transition -> Idle
 			event swon: require_val?SwitchOn
 			action do
-				show_val!SwitchOn(swon.did)							
+				did=swon.did
+				i=0
+				found = false
+				while (i<last_onoff and (not found)) do
+					if (did==onoffswitches[i]) do
+						found=true // trick to terminate while loop
+					end
+					i=i+1
+				end
+				if (found) do
+					poweron[i-1]=true // ON by SIMULATION
+					show_val!SwitchOn(did)
+					// TODO remove when tested print("SIMULATION: Power ON on device #") print(did) print("\n")
+				end
 			end
 			transition -> Idle
 			event swoff: require_val?SwitchOff
 			action do
-				show_val!SwitchOff(did)
+				did=swoff.did
+				i=0
+				found = false
+				while (i<last_onoff and (not found)) do
+					if (did==onoffswitches[i]) do
+						found=true // trick to terminate while loop
+					end
+					i=i+1
+				end
+				if (found) do
+					poweron[i-1]=false // OFF by SIMULATION
+					show_val!SwitchOff(did)
+					// TODO remove when tested print("SIMULATION: Power OFF on device #") print(did) print("\n")
+				end
 			end
 			
 		}
+	}
+}
+
+// TODO Window
+thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
+	provided port temp_input {receives temperature}
+	provided port magnet_input {receives opened, shut}
+	provided port input {receives set_id,SwitchOn, SwitchOff}
+	required port output {sends temperature, opened, shut}
+	required port heater_output {sends SwitchOn, SwitchOff}
+	
+	property wid:Integer
+	property window_state:Boolean = false
+	property sat_temperature:Double = 0
+	property last_temperature:Double = 0
+	
+	statechart behaviourWindow init Init {
+		state Init {
+			transition -> Idle
+			event id:input?set_id
+			action do
+				wid = id.wid
+				print("GOT WINDOW ID: " + wid)
+			end
+		}
+		
+		state Idle{
+			transition -> Idle
+			event temp:temp_input?temperature
+			action do
+				last_temperature = temp.t
+				if(sat_temperature >= 10) do
+					if(sat_temperature + 7 < last_temperature) do
+						heater_output!SwitchOn(0)
+					end
+					else if(window_state) do
+						heater_output!SwitchOff(0)
+					end
+				end
+				output!temperature(wid,"Window " + wid,last_temperature)
+			end
+			
+			transition -> Idle
+			event magnet_input?opened
+			guard not window_state
+			action do
+				window_state = true
+				output!opened(wid)
+			end
+			
+			transition -> Idle
+			event magnet_input?shut
+			guard window_state
+			action do
+				window_state = false
+				output!shut(wid)
+			end
+			
+			transition -> Idle
+			event input?SwitchOn
+			action do
+				heater_output!SwitchOn(0)
+			end
+			
+			transition -> Idle
+			event input?SwitchOff
+			action do
+				heater_output!SwitchOff(0)
+			end
+			
+			
+		}
+	}
+}
+
+// TODO Door
+thing Door includes DoorMsg {
+	
+}
+
+thing MagnetSim includes WindowMsg
+@mock "true"
+{
+	required port give_value {
+		sends opened, shut
 	}
 }
 
@@ -256,12 +385,9 @@ thing GadgetSim includes GeneralMsg
 	}
 }
 
-thing OnOffSim includes OnOffMsg, MagnetMsg
+thing OnOffSim includes OnOffMsg 
 @mock "true"
-{	required port give_values {
-	sends Opened, Closed
-	}
-	provided port show_onoff {
+{	provided port show_onoff {
 		receives SwitchOn, SwitchOff
 	}
 }

@@ -13,7 +13,7 @@ import "psm_datatypes_sim.thingml"
 import "pim_messages.thingml"
 import "timer.thingml"
 
-thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, MagnetMsg {
+thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 	provided port get_sensor {
 		receives temperature
 	}
@@ -24,18 +24,28 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, MagnetMsg {
 		sends add_device, SwitchOn, SwitchOff
 	}
 	provided port human_input {
-		receives add_thermometer, add_device, SwitchOn, SwitchOff, set_temperature, set_polling_interval, Opened, Closed
+		receives add_thermometer, add_device, SwitchOn, SwitchOff, set_temperature, set_polling_interval
 	}
 	required port human_output {
 		sends temperature, prompt
+	}
+	required port window1_output {
+		sends set_id
+	}
+	provided port window1_input {
+		receives opened, shut, temperature
 	}
 	
 	property tmrature:Double = 20 // the requested temperature for the room
 	property thermo_id:Integer // the single thermometer identifier
 	property switch_id:Integer // the single on-off switch identifier
 	
+	property temp_up_or_down:Integer = 0 // 0 = no on or off message sent yet, 1 = off 2 = on;
+	
 	statechart PIM_behavior init Build {
-		composite state Build init AddThermo keeps history {
+		//Start at SetThermostat instead of AddThermo as we know we have one Thermometer and one heater.
+		composite state Build init SetThermostat keeps history {
+			/* Old States
 			state AddThermo {
 				transition -> AddDevice
 				event addt:human_input?add_thermometer
@@ -102,6 +112,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, MagnetMsg {
 				end
 				// temperature and set_temperature handled on Build level
 			}
+			*/
 			state SetThermostat {
 				// Here the only message we want is the set_temperature, but this is on one level up to move to Running
 				transition -> SetThermostat
@@ -135,7 +146,13 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, MagnetMsg {
 			transition -> Running
 			event set_temp:human_input?set_temperature
 			action do
+				// Add the thermometer and heater.
+				request_sensor!add_thermometer(0,"Door")
+				request_actuator!add_device(0)
+				window1_output!set_id(1)
+				
 				tmrature = set_temp.t
+
 				human_output!prompt("Now entering thermostat. Please give temperature observations") // SIMULATION: prompting on console for the user to react properly
 			end
 			
@@ -149,7 +166,41 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, MagnetMsg {
 		composite state Running init Thermostat keeps history {
 		
 		
-			composite state Thermostat init TemprDecide {  // notice that we are not keeping history, we do not know whether to turn on or off
+			composite state Thermostat init CalcAverage {  // notice that we are not keeping history, we do not know whether to turn on or off
+				state CalcAverage {
+					transition -> CalcAverage
+					event heaterTemp:get_sensor?temperature
+					action do
+						if(temp_up_or_down == 0) do
+							if(heaterTemp.t>=tmrature-1) do
+								request_actuator!SwitchOff(0)
+								temp_up_or_down = 1
+							end
+							else do
+								request_actuator!SwitchOn(0)
+								temp_up_or_down = 2
+							end
+						end
+						
+						// Decrease Temp
+					else if(temp_up_or_down == 1) do
+							if(heaterTemp.t<tmrature-1) do
+								request_actuator!SwitchOn(0)
+								temp_up_or_down = 2
+							end
+						end
+						
+						// Increase Temp
+					else if(temp_up_or_down == 2) do
+							if(heaterTemp.t>tmrature+1) do
+								request_actuator!SwitchOff(0)
+								temp_up_or_down = 1
+							end
+						end
+					end
+				}
+				
+				/* 
 				state TemprDecide {
 					transition -> TemprDecrease
 					event temp2:get_sensor?temperature
@@ -164,7 +215,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, MagnetMsg {
 					action do
 						request_actuator!SwitchOn(switch_id)
 					end
-					
 				}
 				
 				state TemprIncrease{ // Invariant: Switch is ON and temperature should increase
@@ -200,7 +250,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, MagnetMsg {
 						request_actuator!SwitchOn(switch_id)
 					end
 				}
-
+*/
 				
 				transition -> On
 				event swon:human_input?SwitchOn
@@ -217,11 +267,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, MagnetMsg {
 				action do
 					tmrature = set_temp.t
 				end
-				transition -> Thermostat
-					event open:human_input?Opened
-					action do
-						human_output!prompt("Window with id " + open.did + "was opened.")
-						end
 			} // end Thermostat
 			
 			state On {

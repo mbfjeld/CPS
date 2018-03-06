@@ -11,6 +11,12 @@ configuration CPS {
 	instance myself:Human
 	instance timer : TimerJava
 	
+	instance window1 : Window
+	instance window1_magnet : MagnetSim
+	instance window1_heater : OnOffSim
+	instance window1_temp : TempSim
+	
+	
 	// SIMULATION
 	instance tg:TempSim
 	instance onoffobs:OnOffSim
@@ -27,8 +33,6 @@ configuration CPS {
 	
 	connector onoff1.show_val => onoffobs.show_onoff
 	
-	connector onoffobs.give_values => pim.human_input
-	
 	// HMI
 	connector myself.send_cmd => pim.human_input
 	
@@ -36,6 +40,15 @@ configuration CPS {
 	connector pim.request_sensor => T1.require_val
 	connector pim.request_actuator => onoff1.require_val
 	connector pim.human_output => myself.get_values
+	
+	// Window 1 Outputs
+	connector window1.output => pim.window1_input
+	connector window1.heater_output => window1_heater.show_onoff
+	
+	// Window 1 Inputs
+	connector pim.window1_output => window1.input
+	connector window1_magnet.give_value => window1.magnet_input
+	connector window1_temp.give_values => window1.temp_input
 	
 	// SIMULATION
 	connector tg.give_values => T1.get_values
