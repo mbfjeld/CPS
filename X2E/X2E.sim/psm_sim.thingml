@@ -30,7 +30,7 @@ thing fragment PSMSensorSingle includes PSMSensorSet {
 // This defines the central kick-down concept. The maven_dep stuff refers to an installed Maven project
 thing TellstickManager includes PSM_Msg, GeneralMsg
 { 	/* Ports may be defined here */
-	required port to_T1 {
+	/*required port to_T1 {
 		sends initialize
 	}
 	
@@ -40,7 +40,7 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 
 	required port to_gdg {
 		sends sensorinfo, deviceinfo
-	}
+	}*/
 	
 	/* properties defined here */
 	property ts : Tellstick // this is set in initialize() function
@@ -75,7 +75,7 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 		temperature=100
 		humidity=27
 		timeStamp=99999		
-		to_gdg!sensorinfo(model,proto,sid,dataTypes,temperature,humidity,timeStamp)
+		//to_gdg!sensorinfo(model,proto,sid,dataTypes,temperature,humidity,timeStamp)
 	end
 	
 	function observe_devices() do
@@ -90,7 +90,7 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 		devicemethods = 5
 		devicelastcmd = "lastcommand"
 		devicelastval = 999
-		to_gdg!deviceinfo(did,name,model,proto,devicetype,devicemethods,devicelastcmd,devicelastval)
+		//to_gdg!deviceinfo(did,name,model,proto,devicetype,devicemethods,devicelastcmd,devicelastval)
 		
 	end
 
@@ -98,8 +98,8 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	// kick-down initialization
 		ts = "Tellstick Duo" // SIMULATION	
 
-		to_T1!initialize(ts)
-		to_onoff1!initialize(ts)
+		//to_T1!initialize(ts)
+		//to_onoff1!initialize(ts)
 		
 		observe_sensors()
 		observe_devices()
@@ -286,7 +286,7 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
 	provided port temp_input {receives temperature}
 	provided port magnet_input {receives opened, shut}
-	provided port input {receives set_id,SwitchOn, SwitchOff}
+	provided port input {receives set_id,SwitchOn, SwitchOff, set_temperature}
 	required port output {sends temperature, opened, shut}
 	required port heater_output {sends SwitchOn, SwitchOff}
 	
@@ -301,23 +301,39 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
 			event id:input?set_id
 			action do
 				wid = id.wid
-				print("GOT WINDOW ID: " + wid)
+				println("Window"+wid+": GOT WINDOW ID: " + wid)
 			end
 		}
 		
 		state Idle{
 			transition -> Idle
+			event temp:input?set_temperature
+			action do
+			if(temp.t >= 10 and temp.t <= 30) do
+				println("Window"+wid+": Sat Temperature to " + temp.t)
+				sat_temperature = temp.t
+			end
+			else do
+				println("Window"+wid+": Temp is out of range: " + temp.t)
+			end
+			end
+			
+			transition -> Idle
 			event temp:temp_input?temperature
 			action do
+			println("Window"+wid+": Received temp: " + temp.t)
 				last_temperature = temp.t
 				if(sat_temperature >= 10) do
-					if(sat_temperature + 7 < last_temperature) do
+					if((sat_temperature - 7) > last_temperature) do
+						println("Window"+wid+": window open, but too cold, keep heater on")
 						heater_output!SwitchOn(0)
 					end
 					else if(window_state) do
+						println("Window"+wid+": window open, turn off heater")
 						heater_output!SwitchOff(0)
 					end
 				end
+				println("Window"+wid+": Sending temp to pid")
 				output!temperature(wid,"Window " + wid,last_temperature)
 			end
 			
@@ -325,7 +341,12 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
 			event magnet_input?opened
 			guard not window_state
 			action do
+			println("Window"+wid+": Window Opened")
 				window_state = true
+				if((sat_temperature - 7) < last_temperature) do
+					println("Window"+wid+": turning off heater")
+					heater_output!SwitchOff(0)
+				end
 				output!opened(wid)
 			end
 			
@@ -333,6 +354,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
 			event magnet_input?shut
 			guard window_state
 			action do
+			println("Window"+wid+": window shut")
 				window_state = false
 				output!shut(wid)
 			end
@@ -340,12 +362,14 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
 			transition -> Idle
 			event input?SwitchOn
 			action do
+			println("Window"+wid+": Got told to turn on heater")
 				heater_output!SwitchOn(0)
 			end
 			
 			transition -> Idle
 			event input?SwitchOff
 			action do
+			println("Window"+wid+": Got told to turn off heater")
 				heater_output!SwitchOff(0)
 			end
 			
@@ -357,6 +381,17 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
 // TODO Door
 thing Door includes DoorMsg {
 	
+}
+
+thing Thermostat includes TemperatureMsg, GeneralMsg
+@mock "true"
+{
+	required port give_values {
+		sends set_temperature
+	}
+	provided port messages {
+		receives prompt, temperature
+	}	
 }
 
 thing MagnetSim includes WindowMsg

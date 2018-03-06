@@ -14,7 +14,7 @@ import "pim_messages.thingml"
 import "timer.thingml"
 
 thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
-	provided port get_sensor {
+	/*provided port get_sensor {
 		receives temperature
 	}
 	required port request_sensor {
@@ -28,12 +28,27 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 	}
 	required port human_output {
 		sends temperature, prompt
+	}*/
+	required port thermostat_output {
+		sends temperature, prompt
+	}
+	provided port thermostat_input {
+		receives set_temperature
+	}
+	provided port wall_temp {
+		receives temperature
+	}
+	required port wall_heater {
+		sends SwitchOn, SwitchOff
 	}
 	required port window1_output {
-		sends set_id
+		sends set_id, set_temperature
 	}
-	provided port window1_input {
+	provided port window_input {
 		receives opened, shut, temperature
+	}
+	required port window2_output {
+		sends set_id, set_temperature
 	}
 	
 	property tmrature:Double = 20 // the requested temperature for the room
@@ -44,8 +59,13 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 	
 	statechart PIM_behavior init Build {
 		//Start at SetThermostat instead of AddThermo as we know we have one Thermometer and one heater.
-		composite state Build init SetThermostat keeps history {
-			/* Old States
+		state Build {
+					on entry do
+					// Add windows
+				  	window1_output!set_id(1)
+				  	window2_output!set_id(2)
+					end			
+/* Old States
 			state AddThermo {
 				transition -> AddDevice
 				event addt:human_input?add_thermometer
@@ -112,10 +132,11 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 				end
 				// temperature and set_temperature handled on Build level
 			}
-			*/
-			state SetThermostat {
+			
+			final state SetThermostat {
+				
 				// Here the only message we want is the set_temperature, but this is on one level up to move to Running
-				transition -> SetThermostat
+				/*transition -> SetThermostat
 				event human_input?add_thermometer
 				action do
 					human_output!prompt("Please set temperature for Thermostat")
@@ -140,27 +161,22 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 				action do
 					human_output!prompt("Please set temperature for Thermostat")
 				end			
-			}
+			}*/
 			
 			// Normal transition to the Running state
 			transition -> Running
-			event set_temp:human_input?set_temperature
+			event set_temp:thermostat_input?set_temperature//set_temp:human_input?set_temperature
 			action do
-				// Add the thermometer and heater.
-				request_sensor!add_thermometer(0,"Door")
-				request_actuator!add_device(0)
-				window1_output!set_id(1)
-				
 				tmrature = set_temp.t
+				window1_output!set_temperature(tmrature)
 
-				human_output!prompt("Now entering thermostat. Please give temperature observations") // SIMULATION: prompting on console for the user to react properly
+				thermostat_output!prompt("Now entering thermostat. Please give temperature observations") // SIMULATION: prompting on console for the user to react properly
 			end
 			
 			//Escape situations
 			transition -> Build
-			event get_sensor?temperature 
+			event wall_temp?temperature 
 				// just discard, the thermostat is not running, yet (161103)
-			
 		} // end Build
 		
 		composite state Running init Thermostat keeps history {
@@ -169,15 +185,15 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 			composite state Thermostat init CalcAverage {  // notice that we are not keeping history, we do not know whether to turn on or off
 				state CalcAverage {
 					transition -> CalcAverage
-					event heaterTemp:get_sensor?temperature
+					event heaterTemp:wall_temp?temperature
 					action do
 						if(temp_up_or_down == 0) do
 							if(heaterTemp.t>=tmrature-1) do
-								request_actuator!SwitchOff(0)
+								wall_heater!SwitchOff(0)
 								temp_up_or_down = 1
 							end
 							else do
-								request_actuator!SwitchOn(0)
+								wall_heater!SwitchOn(0)
 								temp_up_or_down = 2
 							end
 						end
@@ -185,7 +201,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 						// Decrease Temp
 					else if(temp_up_or_down == 1) do
 							if(heaterTemp.t<tmrature-1) do
-								request_actuator!SwitchOn(0)
+								wall_heater!SwitchOn(0)
 								temp_up_or_down = 2
 							end
 						end
@@ -193,7 +209,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 						// Increase Temp
 					else if(temp_up_or_down == 2) do
 							if(heaterTemp.t>tmrature+1) do
-								request_actuator!SwitchOff(0)
+								wall_heater!SwitchOff(0)
 								temp_up_or_down = 1
 							end
 						end
@@ -250,7 +266,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 						request_actuator!SwitchOn(switch_id)
 					end
 				}
-*/
 				
 				transition -> On
 				event swon:human_input?SwitchOn
@@ -262,13 +277,16 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 				action do
 					request_actuator!SwitchOff(swoff.did)
 				end 
+				 */
 				transition -> Thermostat
-				event set_temp:human_input?set_temperature
+				event set_temp:thermostat_input?set_temperature
 				action do
 					tmrature = set_temp.t
+					window1_output!set_temperature(tmrature)
 				end
 			} // end Thermostat
 			
+			/* 
 			state On {
 				transition -> Off
 				event swoff:human_input?SwitchOff
@@ -284,6 +302,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 				event set_temp:human_input?set_temperature
 				action do
 					tmrature = set_temp.t
+				window1_output!set_temperature(tmrature)
 				end
 			}
 			state Off {
@@ -301,25 +320,27 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 				event set_temp:human_input?set_temperature
 				action do
 					tmrature = set_temp.t
+				window1_output!set_temperature(tmrature)
 				end	
 			}
-			
+			 */
+			 
 			// Transitions of the composite state Running
-			transition -> Running
+			/*transition -> Running
 			event pollint:human_input?set_polling_interval
 			action do
 				// just forward the polling interval instructions to the PSM
 				request_sensor!set_polling_interval(pollint.intrvl)
-			end
+			end*/
 			transition -> Running
-			event temp:get_sensor?temperature
+			event temp:wall_temp?temperature
 				// just discard - this should only happen when in On or Off states
 			
 			// Messages that should not occur, but may occur
-			transition -> Running
+			/*transition -> Running
 			event human_input?add_thermometer
 			action do
-				human_output!prompt("Adding thermometers has been done and then blocked")
+				thermostat_output!prompt("Adding thermometers has been done and then blocked")
 			end	
 			transition -> Running
 			event human_input?add_device
@@ -336,11 +357,11 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 			event human_input?SwitchOff
 			action do
 				human_output!prompt("INTERNAL ERROR: Impossible SwitchOff at PIM.Running")
-			end		
+			end*/		
 			transition -> Running
-			event human_input?set_temperature
+			event thermostat_input?set_temperature
 			action do
-				human_output!prompt("INTERNAL ERROR: Impossible set_temperature at PIM.Running")
+				thermostat_output!prompt("INTERNAL ERROR: Impossible set_temperature at PIM.Running")
 			end		
 		} // end Running
 	} // end PIM_behavior
