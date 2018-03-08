@@ -43,7 +43,7 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 	}*/
 	
 	/* properties defined here */
-	property ts : Tellstick // this is set in initialize() function
+	//property ts : Tellstick // this is set in initialize() function
 	// property sensor_list:Sensor[25] removed at SIMULATION
 	// property device_list:Device[25] removed at SIMULATION
 	property i:Integer // runner index in list of sensors or devices
@@ -96,7 +96,7 @@ thing TellstickManager includes PSM_Msg, GeneralMsg
 
 	function initialize() do
 	// kick-down initialization
-		ts = "Tellstick Duo" // SIMULATION	
+		//ts = "Tellstick Duo" // SIMULATION	
 
 		//to_T1!initialize(ts)
 		//to_onoff1!initialize(ts)

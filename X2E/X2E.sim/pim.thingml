@@ -141,9 +141,18 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 			transition -> Running
 			event set_temp:thermostat_input?set_temperature//set_temp:human_input?set_temperature
 			action do
-				tmrature = set_temp.t
+				if(set_temp.t > 30) do
+					tmrature = 30
+				end
+				else if(set_temp.t < 10)do
+					tmrature = 10
+				end
+				else do
+					tmrature = set_temp.t
+				end
 				window1_output!set_temperature(tmrature)
 				window2_output!set_temperature(tmrature)
+				thermostat_output!prompt("Temperature sat to " + tmrature)
 			end
 	
 				
@@ -212,18 +221,23 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 				transition -> DoorNotLocked
 				event set_temp:thermostat_input?set_temperature//set_temp:human_input?set_temperature
 				action do
-					tmrature = set_temp.t
+					if(set_temp.t > 30) do
+						tmrature = 30
+					end
+					else if(set_temp.t < 10)do
+						tmrature = 10
+					end
+					else do
+						tmrature = set_temp.t
+					end
 					window1_output!set_temperature(tmrature)
 					window2_output!set_temperature(tmrature)
+					thermostat_output!prompt("Temperature sat to " + tmrature)
 					UpdateHeaters()
 				end
 			}
 			
-			state DoorLocked {
-				on entry do
-				println("NOW IN LOCKED STATE")
-				end
-				
+			state DoorLocked {			
 				transition -> DoorLocked
 				event temp:wall_temp?singletemperature
 				action do
@@ -270,23 +284,24 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 				transition -> DoorLocked
 				event set_temp:thermostat_input?set_temperature
 				action do
-					tmrature = set_temp.t
+					if(set_temp.t > 30) do
+						tmrature = 30
+					end
+					else if(set_temp.t < 10)do
+						tmrature = 10
+					end
+					else do
+						tmrature = set_temp.t
+					end
 					window1_output!set_temperature(tmrature)
 					window2_output!set_temperature(tmrature)
+					thermostat_output!prompt("Temperature sat to " + tmrature)
 					UpdateHeaters()
 				end
 				
 				transition -> DoorNotLocked
 				event door_input?opened
-			}
-			transition -> Running
-			event temp:wall_temp?singletemperature
-		
-			transition -> Running
-			event thermostat_input?set_temperature
-			action do
-				thermostat_output!prompt("INTERNAL ERROR: Impossible set_temperature at PIM.Running")
-			end		
+			}		
 		} // end Running
 	} // end PIM_behavior
 } // end PIM thing

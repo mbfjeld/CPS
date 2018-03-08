@@ -4,13 +4,6 @@ import "io.thingml"
 import "javatimer.thingml"
 
 configuration CPS {
-	//instance tlstick:TellstickManager
-	
-	//instance myself:Human
-	//instance T1:ThermometerSet
-	//instance onoff1:OnOffSet
-	//instance timer : TimerJava
-
 	instance pim:PIM
 	instance window1 : Window
 	instance window2 : Window
@@ -24,31 +17,28 @@ configuration CPS {
 	connector room_sim.give_values => pim.wall_temp
 	connector room_sim.give_values => pim.thermostat_input
 	connector room_sim.give_values => pim.door_input
+	connector window1.output => pim.windows_input
+	connector window2.output => pim.windows_input
 	
 	// PIM Outputs
 	connector pim.wall_heater => room_sim.show_onoff
 	connector pim.thermostat_output => room_sim.messages
+	connector pim.window1_output => window1.input
+	connector pim.window2_output => window2.input
 	
 	// Window 1 Outputs
-	connector window1.output => pim.windows_input
 	connector window1.heater_output => window1_sim.show_onoff
 	connector window1.debug_settemp => window1_sim.show_temp
 	
 	// Window 1 Inputs
-	connector pim.window1_output => window1.input
 	connector window1_sim.give_values => window1.magnet_input
 	connector window1_sim.give_values => window1.temp_input
 
 	// Window 2 Outputs
-	connector window2.output => pim.windows_input
 	connector window2.heater_output => window2_sim.show_onoff
 	connector window2.debug_settemp => window2_sim.show_temp
 	
 	// Window 2 Inputs
-	connector pim.window2_output => window2.input
 	connector window2_sim.give_values => window2.magnet_input
 	connector window2_sim.give_values => window2.temp_input
-	
-	// SIMULATION
-	//connector tg.give_values => T1.get_values
 }
