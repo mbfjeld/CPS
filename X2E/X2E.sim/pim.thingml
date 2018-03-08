@@ -3,15 +3,10 @@
 // Base datatypes
 import "datatypes.thingml"
 
-// Import everything in core [where is core?]
-// import "core/scheduler.thingml"
-// import "core/timer.thingml"
-
 /* PSM must be included */
 import "psm_sim.thingml"
 import "psm_datatypes_sim.thingml"
 import "pim_messages.thingml"
-import "timer.thingml"
 
 thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 	required port thermostat_output {
@@ -36,19 +31,16 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 		sends set_id, set_temperature,  SwitchOff, SwitchOn
 	}
 	provided port door_input {
-		receives singleopened, singleshut, singlelocked
+		receives singleopened, singlelocked
 	}
 	
 	property tmrature:Double   // the requested temperature for the room
-	property thermo_id:Integer // the single thermometer identifier
-	property switch_id:Integer // the single on-off switch identifier
 	
 	property temp_up_or_down:Integer = 0 // 0 = no on or off message sent yet, 1 = off 2 = on;
 	
 	// Magnet swtiches states
 	property window1_state:Boolean = true //starts closed
 	property window2_state:Boolean = true // starts closed
-	property door_locked:Boolean
 	
 	// Got temp from windows?
 	property window1_gotTemp:Boolean
@@ -128,38 +120,15 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 		end
 	end
 	
-	statechart PIM_behavior init Build {
-		//Start at SetThermostat instead of AddThermo as we know we have one Thermometer and one heater.
-		state Build {
-					on entry do
-					// Add windows
-				  	window1_output!set_id(1)
-				  	window2_output!set_id(2)
-					end			
-			
-			// Normal transition to the Running state
-			transition -> Running
-			event set_temp:thermostat_input?set_temperature//set_temp:human_input?set_temperature
-			action do
-				if(set_temp.t > 30) do
-					tmrature = 30
-				end
-				else if(set_temp.t < 10)do
-					tmrature = 10
-				end
-				else do
-					tmrature = set_temp.t
-				end
-				window1_output!set_temperature(tmrature)
-				window2_output!set_temperature(tmrature)
-				thermostat_output!prompt("Temperature sat to " + tmrature)
-			end
-	
-				
-		} // end Build
+	statechart PIM_behavior init Running {
 		
 		composite state Running init DoorNotLocked keeps history {
-		
+		on entry do
+			// Add windows
+			window1_output!set_id(1)
+			window2_output!set_id(2)
+		end	
+					
 			state DoorNotLocked {
 				transition -> DoorNotLocked
 				event temp:wall_temp?singletemperature
