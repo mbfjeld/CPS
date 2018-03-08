@@ -18,7 +18,6 @@ thing fragment TemperatureMsg {
 }
 
 // Devices actuators in general
-
 thing fragment DeviceGeneral {
 	message add_device(did:Integer);
 }
@@ -29,6 +28,7 @@ thing fragment OnOffMsg includes DeviceGeneral{
 	message SwitchOff(did:Integer);
 }
 
+// Window
 thing fragment WindowMsg {
 	// ID
 	message set_id(wid:Integer);
@@ -39,6 +39,7 @@ thing fragment WindowMsg {
 	message last_state(wid:Integer, s:Boolean);
 }
 
+// Door
 thing fragment DoorMsg {
 	message opened();
 	message shut();

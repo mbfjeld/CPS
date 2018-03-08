@@ -379,8 +379,12 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
 }
 
 // TODO Door
-thing Door includes DoorMsg {
-	
+thing Door includes DoorMsg
+@mock "true"
+{
+	required port give_values {
+		sends opened, shut, locked
+	}
 }
 
 thing Thermostat includes TemperatureMsg, GeneralMsg

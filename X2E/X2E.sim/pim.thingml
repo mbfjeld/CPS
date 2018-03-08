@@ -13,7 +13,7 @@ import "psm_datatypes_sim.thingml"
 import "pim_messages.thingml"
 import "timer.thingml"
 
-thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
+thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, DoorMsg {
 	/*provided port get_sensor {
 		receives temperature
 	}
@@ -42,20 +42,108 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 		sends SwitchOn, SwitchOff
 	}
 	required port window1_output {
-		sends set_id, set_temperature
+		sends set_id, set_temperature, SwitchOff, SwitchOn
 	}
-	provided port window_input {
+	provided port windows_input {
 		receives opened, shut, temperature
 	}
 	required port window2_output {
-		sends set_id, set_temperature
+		sends set_id, set_temperature,  SwitchOff, SwitchOn
+	}
+	provided port door_input {
+		receives opened, shut, locked
 	}
 	
-	property tmrature:Double = 20 // the requested temperature for the room
+	property tmrature:Double   // the requested temperature for the room
 	property thermo_id:Integer // the single thermometer identifier
 	property switch_id:Integer // the single on-off switch identifier
 	
 	property temp_up_or_down:Integer = 0 // 0 = no on or off message sent yet, 1 = off 2 = on;
+	
+	// Magnet swtiches states
+	property window1_state:Boolean = true //starts closed
+	property window2_state:Boolean = true // starts closed
+	property door_locked:Boolean
+	
+	// Got temp from windows?
+	property window1_gotTemp:Boolean
+	property window2_gotTemp:Boolean
+	
+	// Last read temperatures
+	property temp_wall:Double
+	property temp_window1:Double
+	property temp_window2:Double
+	
+	// Rooms average temperature
+	property avgTemp:Double
+	
+	function UpdateHeaters() do
+		println("Calculating average temperature")
+		
+		// Only wall is viable
+		if(not (window1_state and window1_gotTemp) and not (window2_state and window2_gotTemp)) do
+			println("Only wall is viable temperature")
+			avgTemp = temp_wall
+		end
+		
+		// Window 1 and wall is viable
+		else if((window1_state and window1_gotTemp) and not (window2_state and window2_gotTemp)) do
+			println("Wall and window1 are viable temperatures")
+			avgTemp = (temp_wall + temp_window1)/2
+		end
+		
+		// Window 2 and wall is viable
+		else if(not (window1_state and window1_gotTemp) and (window2_state and window2_gotTemp)) do
+			println("Wall and window2 are viable temperatures")
+			avgTemp = (temp_wall + temp_window2)/2
+		end
+		
+		// Both windows and wall is viable
+		else if((window1_state and window1_gotTemp) and (window2_state and window2_gotTemp)) do
+			println("Wall and both windows are viable temperatures")
+			avgTemp = (temp_wall + temp_window1 + temp_window2)/3
+		end
+		
+		println("Average Temp is = " + avgTemp)
+		
+		
+		println("Turning heaters on or off")
+		// Initial
+		if(temp_up_or_down == 0) do
+			if(avgTemp>=tmrature-1) do
+				wall_heater!SwitchOff(0)
+				window1_output!SwitchOff(1)
+				window2_output!SwitchOff(2)
+				temp_up_or_down = 1
+			end
+			else do
+				wall_heater!SwitchOn(0)
+				window1_output!SwitchOn(1)
+				window2_output!SwitchOn(2)
+				temp_up_or_down = 2
+			end
+		end
+						
+		// Decrease Temp
+		else if(temp_up_or_down == 1) do
+			if(avgTemp<tmrature-1) do
+				wall_heater!SwitchOn(0)
+				window1_output!SwitchOn(1)
+				window2_output!SwitchOn(2)
+				temp_up_or_down = 2
+			end
+		end
+						
+		// Increase Temp
+		else if(temp_up_or_down == 2) do
+			if(avgTemp>tmrature+1) do
+				wall_heater!SwitchOff(0)
+				window1_output!SwitchOff(1)
+				window2_output!SwitchOff(2)
+				temp_up_or_down = 1
+			end
+		end
+	end
 	
 	statechart PIM_behavior init Build {
 		//Start at SetThermostat instead of AddThermo as we know we have one Thermometer and one heater.
@@ -169,54 +257,136 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 			action do
 				tmrature = set_temp.t
 				window1_output!set_temperature(tmrature)
+				window2_output!set_temperature(tmrature)
 
-				thermostat_output!prompt("Now entering thermostat. Please give temperature observations") // SIMULATION: prompting on console for the user to react properly
+				thermostat_output!prompt("Please set a desired temperature") // SIMULATION: prompting on console for the user to react properly
 			end
 			
+			/*
 			//Escape situations
 			transition -> Build
 			event wall_temp?temperature 
 				// just discard, the thermostat is not running, yet (161103)
+				*/
+				
 		} // end Build
 		
-		composite state Running init Thermostat keeps history {
+		composite state Running init DoorNotLocked keeps history {
 		
-		
-			composite state Thermostat init CalcAverage {  // notice that we are not keeping history, we do not know whether to turn on or off
-				state CalcAverage {
-					transition -> CalcAverage
-					event heaterTemp:wall_temp?temperature
-					action do
-						if(temp_up_or_down == 0) do
-							if(heaterTemp.t>=tmrature-1) do
-								wall_heater!SwitchOff(0)
-								temp_up_or_down = 1
-							end
-							else do
-								wall_heater!SwitchOn(0)
-								temp_up_or_down = 2
-							end
+			state DoorNotLocked {
+				transition -> DoorNotLocked
+				event temp:wall_temp?temperature
+				action do
+					temp_wall = temp.t
+					UpdateHeaters()
+				end
+				transition -> DoorNotLocked
+				event temp:windows_input?temperature
+				action do
+				if(temp.id == 1) do
+				window1_gotTemp = true
+				temp_window1 = temp.t
+				end
+				else if (temp.id == 2) do
+				window2_gotTemp = true
+				temp_window2 = temp.t
+				end
+					UpdateHeaters()
+				end
+				transition -> DoorNotLocked
+				event opened:windows_input?opened
+				action do
+					if(opened.wid == 1) do
+						window1_state = false
+					end
+					else if(opened.wid == 2) do
+						window2_state = false
+					end
+					UpdateHeaters()
+				end
+				transition -> DoorNotLocked
+				event shut:windows_input?shut
+				action do
+					if(shut.wid == 1) do
+						window1_state = true
+					end
+					else if(shut.wid == 2) do
+						window2_state = true
+					end
+					UpdateHeaters()
+				end
+				transition -> DoorLocked
+				event door_input?locked
+				action do
+					if(not window1_state or not window2_state) do
+						println("WARNING, DOOR LOCKED WITH WINDOW OPEN")
+						if(window1_state and not window2_state) do
+							thermostat_output!prompt("WARNING: Window 2 is open!")
 						end
-						
-						// Decrease Temp
-					else if(temp_up_or_down == 1) do
-							if(heaterTemp.t<tmrature-1) do
-								wall_heater!SwitchOn(0)
-								temp_up_or_down = 2
-							end
+						if(not window1_state and window2_state) do
+							thermostat_output!prompt("WARNING: Window 1 is open!")
 						end
-						
-						// Increase Temp
-					else if(temp_up_or_down == 2) do
-							if(heaterTemp.t>tmrature+1) do
-								wall_heater!SwitchOff(0)
-								temp_up_or_down = 1
-							end
+						else do
+							thermostat_output!prompt("WARNING: Both windows are open!")
 						end
 					end
-				}
+				end
+			}
+			
+			state DoorLocked {
+				on entry do
+				println("NOW IN LOCKED STATE")
+				end
 				
-				/* 
+				transition -> DoorLocked
+				event temp:wall_temp?temperature
+				action do
+					temp_wall = temp.t
+					UpdateHeaters()
+				end
+				transition -> DoorLocked
+				event temp:windows_input?temperature
+				action do
+				if(temp.id == 1) do
+				window1_gotTemp = true
+				temp_window1 = temp.t
+				end
+				else if (temp.id == 2) do
+				window2_gotTemp = true
+				temp_window2 = temp.t
+				end
+					UpdateHeaters()
+				end
+				transition -> DoorLocked
+				event opened:windows_input?opened
+				action do
+					if(opened.wid == 1) do
+						window1_state = false
+					end
+					else if(opened.wid == 2) do
+						window2_state = false
+					end
+					UpdateHeaters()
+					println("ALARM: Window" + opened.wid + " was opened while in a locked state!")
+					thermostat_output!prompt("ALARM: Window" + opened.wid + " was opened!")
+				end
+				transition -> DoorLocked
+				event shut:windows_input?shut
+				action do
+					if(shut.wid == 1) do
+						window1_state = true
+					end
+					else if(shut.wid == 2) do
+						window2_state = true
+					end
+					UpdateHeaters()
+				end
+			}
+		
+		/* 
+			composite state Thermostat init TemprDecide {  // notice that we are not keeping history, we do not know whether to turn on or off
+				
+				
 				state TemprDecide {
 					transition -> TemprDecrease
 					event temp2:get_sensor?temperature
@@ -277,7 +447,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 				action do
 					request_actuator!SwitchOff(swoff.did)
 				end 
-				 */
+				
 				transition -> Thermostat
 				event set_temp:thermostat_input?set_temperature
 				action do
@@ -286,7 +456,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 				end
 			} // end Thermostat
 			
-			/* 
 			state On {
 				transition -> Off
 				event swoff:human_input?SwitchOff
@@ -323,8 +492,9 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 				window1_output!set_temperature(tmrature)
 				end	
 			}
-			 */
-			 
+			
+			  */
+			  
 			// Transitions of the composite state Running
 			/*transition -> Running
 			event pollint:human_input?set_polling_interval
@@ -366,4 +536,3 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg {
 		} // end Running
 	} // end PIM_behavior
 } // end PIM thing
-

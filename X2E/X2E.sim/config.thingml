@@ -56,7 +56,7 @@ configuration CPS {
 	connector pim.thermostat_output => thermostat.messages
 	
 	// Window 1 Outputs
-	connector window1.output => pim.window_input
+	connector window1.output => pim.windows_input
 	connector window1.heater_output => window1_heater.show_onoff
 	
 	// Window 1 Inputs
@@ -65,7 +65,7 @@ configuration CPS {
 	connector window1_temp.give_values => window1.temp_input
 
 	// Window 2 Outputs
-	connector window2.output => pim.window_input
+	connector window2.output => pim.windows_input
 	connector window2.heater_output => window2_heater.show_onoff
 	
 	// Window 2 Inputs
