@@ -300,7 +300,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 	
 	statechart behaviourWindow init Init {
 		state Init {
-			transition -> Idle
+			transition -> Running
 			event id:input?set_id
 			action do
 				wid = id.wid
@@ -308,8 +308,8 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 			end
 		}
 		
-		state Idle{
-			transition -> Idle
+		state Running{
+			transition -> Running
 			event temp:input?set_temperature
 			action do
 			if(temp.t >= 10 and temp.t <= 30) do
@@ -322,7 +322,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 			end
 			end
 			
-			transition -> Idle
+			transition -> Running
 			event temp:temp_input?singletemperature
 			action do
 			println("Window"+wid+": Received temp: " + temp.t)
@@ -347,7 +347,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 				output!temperature(wid,"Window " + wid,last_temperature)
 			end
 			
-			transition -> Idle
+			transition -> Running
 			event magnet_input?singleopened
 			guard not window_state
 			action do
@@ -363,7 +363,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 				output!opened(wid)
 			end
 			
-			transition -> Idle
+			transition -> Running
 			event magnet_input?singleshut
 			guard window_state
 			action do
@@ -376,7 +376,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 				end
 			end
 			
-			transition -> Idle
+			transition -> Running
 			event input?SwitchOn
 			action do
 			println("Window"+wid+": Got told to turn on heater")
@@ -386,7 +386,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 				end
 			end
 			
-			transition -> Idle
+			transition -> Running
 			event input?SwitchOff
 			action do
 			println("Window"+wid+": Got told to turn off heater")
