@@ -13,10 +13,10 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 	required port heater_output {sends SwitchOn, SwitchOff}
 	required port debug_settemp {sends set_temperature}
 	
-	property wid:Integer
+	property wid:Integer = -1
 	property window_state:Boolean = false
-	property heater_state:Boolean
-	property heater_lastpim:Boolean
+	property heater_state:Boolean = false
+	property heater_lastpim:Boolean = false
 	property sat_temperature:Double = 0
 	property last_temperature:Double = 0
 	

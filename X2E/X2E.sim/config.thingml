@@ -1,7 +1,5 @@
 import "psm_sim.thingml"
 import "pim.thingml"
-import "io.thingml"
-import "javatimer.thingml"
 
 configuration CPS {
 	instance pim:PIM

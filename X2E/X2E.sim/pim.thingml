@@ -34,7 +34,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 		receives singleopened, singlelocked
 	}
 	
-	property tmrature:Double   // the requested temperature for the room
+	property tmrature:Double = 0   // the requested temperature for the room
 	
 	property temp_up_or_down:Integer = 0 // 0 = no on or off message sent yet, 1 = off 2 = on;
 	
@@ -43,16 +43,16 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 	property window2_state:Boolean = true // starts closed
 	
 	// Got temp from windows?
-	property window1_gotTemp:Boolean
-	property window2_gotTemp:Boolean
+	property window1_gotTemp:Boolean = false
+	property window2_gotTemp:Boolean = false
 	
 	// Last read temperatures
-	property temp_wall:Double
-	property temp_window1:Double
-	property temp_window2:Double
+	property temp_wall:Double = 0
+	property temp_window1:Double = 0
+	property temp_window2:Double = 0
 	
 	// Rooms average temperature
-	property avgTemp:Double
+	property avgTemp:Double = 0
 	
 	function UpdateHeaters() do
 		println("Calculating average temperature")
