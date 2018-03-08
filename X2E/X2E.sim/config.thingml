@@ -10,70 +10,44 @@ configuration CPS {
 	//instance T1:ThermometerSet
 	//instance onoff1:OnOffSet
 	//instance timer : TimerJava
-	
+
 	instance pim:PIM
-	
 	instance window1 : Window
-	instance window1_magnet : MagnetSim
-	instance window1_heater : OnOffSim
-	instance window1_temp : TempSim	
-	
 	instance window2 : Window
-	instance window2_magnet : MagnetSim
-	instance window2_heater : OnOffSim
-	instance window2_temp : TempSim
-	
+
 	// SIMULATION
-	instance wallTemp:TempSim
-	instance wallHeater:OnOffSim
-	instance thermostat:Thermostat
-	instance door:MagnetSim
-	
-	// PSM
-	//connector tlstick.to_T1 => T1.initial
-	//connector tlstick.to_gdg => gdg.show_gadgets
-	//connector tlstick.to_onoff1 => onoff1.initial
-	
-	//connector T1.provide_val => pim.get_sensor
-	//connector T1.timer => timer.timer
-	//connector T1.show_values => tg.show_values
-	
-	//connector onoff1.show_val => onoffobs.show_onoff
-	
-	// HMI
-	//connector myself.send_cmd => pim.human_input
-	
-	// PIM outwards 
-	//connector pim.request_sensor => T1.require_val
-	//connector pim.request_actuator => onoff1.require_val
-	//connector pim.human_output => myself.get_values
+	instance room_sim : RoomSim
+	instance window1_sim : WindowSim
+	instance window2_sim : WindowSim
 	
 	// PIM Inputs
-	connector wallTemp.give_values => pim.wall_temp
-	connector thermostat.give_values => pim.thermostat_input
-	connector door.give_values => pim.door_input
+	connector room_sim.give_values => pim.wall_temp
+	connector room_sim.give_values => pim.thermostat_input
+	connector room_sim.give_values => pim.door_input
 	
 	// PIM Outputs
-	connector pim.wall_heater => wallHeater.show_onoff
-	connector pim.thermostat_output => thermostat.messages
+	connector pim.wall_heater => room_sim.show_onoff
+	connector pim.thermostat_output => room_sim.messages
 	
 	// Window 1 Outputs
 	connector window1.output => pim.windows_input
-	connector window1.heater_output => window1_heater.show_onoff
+	connector window1.heater_output => window1_sim.show_onoff
+	connector window1.debug_settemp => window1_sim.show_temp
 	
 	// Window 1 Inputs
 	connector pim.window1_output => window1.input
-	connector window1_magnet.give_values => window1.magnet_input
-	connector window1_temp.give_values => window1.temp_input
+	connector window1_sim.give_values => window1.magnet_input
+	connector window1_sim.give_values => window1.temp_input
 
 	// Window 2 Outputs
 	connector window2.output => pim.windows_input
-	connector window2.heater_output => window2_heater.show_onoff
+	connector window2.heater_output => window2_sim.show_onoff
+	connector window2.debug_settemp => window2_sim.show_temp
 	
 	// Window 2 Inputs
 	connector pim.window2_output => window2.input
-	connector window2_magnet.give_values => window2.magnet_input
-	connector window2_temp.give_values => window2.temp_input
+	connector window2_sim.give_values => window2.magnet_input
+	connector window2_sim.give_values => window2.temp_input
 	
 	// SIMULATION
 	//connector tg.give_values => T1.get_values

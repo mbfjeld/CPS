@@ -15,6 +15,7 @@ thing fragment TemperatureMsg {
     message temperature(id:Integer, txt:String, t : Double);
     message add_thermometer(id:Integer,txt:String);
     message set_temperature(t:Double);
+    message singletemperature(t:Double);
 }
 
 // Devices actuators in general
@@ -41,4 +42,7 @@ thing fragment MagnetMsg {
 	message opened(wid:Integer);
 	message shut(wid:Integer);
 	message locked(wid:Integer);
+	message singleopened();
+	message singleshut();
+	message singlelocked();
 }
