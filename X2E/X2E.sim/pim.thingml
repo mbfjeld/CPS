@@ -13,7 +13,7 @@ import "psm_datatypes_sim.thingml"
 import "pim_messages.thingml"
 import "timer.thingml"
 
-thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, DoorMsg {
+thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 	/*provided port get_sensor {
 		receives temperature
 	}
@@ -30,7 +30,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, DoorMsg {
 		sends temperature, prompt
 	}*/
 	required port thermostat_output {
-		sends temperature, prompt
+		sends prompt
 	}
 	provided port thermostat_input {
 		receives set_temperature

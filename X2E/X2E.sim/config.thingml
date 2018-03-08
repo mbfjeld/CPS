@@ -27,6 +27,7 @@ configuration CPS {
 	instance wallTemp:TempSim
 	instance wallHeater:OnOffSim
 	instance thermostat:Thermostat
+	instance door:MagnetSim
 	
 	// PSM
 	//connector tlstick.to_T1 => T1.initial
@@ -50,6 +51,7 @@ configuration CPS {
 	// PIM Inputs
 	connector wallTemp.give_values => pim.wall_temp
 	connector thermostat.give_values => pim.thermostat_input
+	connector door.give_values => pim.door_input
 	
 	// PIM Outputs
 	connector pim.wall_heater => wallHeater.show_onoff
@@ -61,7 +63,7 @@ configuration CPS {
 	
 	// Window 1 Inputs
 	connector pim.window1_output => window1.input
-	connector window1_magnet.give_value => window1.magnet_input
+	connector window1_magnet.give_values => window1.magnet_input
 	connector window1_temp.give_values => window1.temp_input
 
 	// Window 2 Outputs
@@ -70,7 +72,7 @@ configuration CPS {
 	
 	// Window 2 Inputs
 	connector pim.window2_output => window2.input
-	connector window2_magnet.give_value => window2.magnet_input
+	connector window2_magnet.give_values => window2.magnet_input
 	connector window2_temp.give_values => window2.temp_input
 	
 	// SIMULATION

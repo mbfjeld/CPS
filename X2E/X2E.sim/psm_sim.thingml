@@ -283,7 +283,7 @@ thing OnOffSet includes PSM_Msg, GeneralMsg, OnOffMsg{
 }
 
 // TODO Window
-thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
+thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 	provided port temp_input {receives temperature}
 	provided port magnet_input {receives opened, shut}
 	provided port input {receives set_id,SwitchOn, SwitchOff, set_temperature}
@@ -379,7 +379,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg{
 }
 
 // TODO Door
-thing Door includes DoorMsg
+thing MagnetSim includes MagnetMsg
 @mock "true"
 {
 	required port give_values {
@@ -396,14 +396,6 @@ thing Thermostat includes TemperatureMsg, GeneralMsg
 	provided port messages {
 		receives prompt, temperature
 	}	
-}
-
-thing MagnetSim includes WindowMsg
-@mock "true"
-{
-	required port give_value {
-		sends opened, shut
-	}
 }
 
 //SIMULATION

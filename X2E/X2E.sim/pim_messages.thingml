@@ -32,16 +32,13 @@ thing fragment OnOffMsg includes DeviceGeneral{
 thing fragment WindowMsg {
 	// ID
 	message set_id(wid:Integer);
-	// Magnet Sensor
-	message opened(wid:Integer);
-	message shut(wid:Integer);
 	// Logic
 	message last_state(wid:Integer, s:Boolean);
 }
 
-// Door
-thing fragment DoorMsg {
-	message opened();
-	message shut();
-	message locked();
+// Magnet Sensor
+thing fragment MagnetMsg {
+	message opened(wid:Integer);
+	message shut(wid:Integer);
+	message locked(wid:Integer);
 }
