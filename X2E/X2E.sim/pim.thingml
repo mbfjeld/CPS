@@ -48,6 +48,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 	
 	// Last read temperatures
 	property temp_wall:Double = 0
+	property wall_gotTemp:Boolean = false
 	property temp_window1:Double = 0
 	property temp_window2:Double = 0
 	
@@ -91,7 +92,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 			if(avgTemp>=tmrature-1) do
 				temp_up_or_down = 1
 			end
-			else do
+			// Only turn on if we have gotten any temperatures
+			else if(window1_gotTemp or window2_gotTemp or wall_gotTemp) do
 				wall_heater!SwitchOn(0)
 				window1_output!SwitchOn(1)
 				window2_output!SwitchOn(2)
@@ -133,6 +135,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 				transition -> DoorNotLocked
 				event temp:wall_temp?singletemperature
 				action do
+					wall_gotTemp = true
 					temp_wall = temp.t
 					UpdateHeaters()
 				end
@@ -210,6 +213,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 				transition -> DoorLocked
 				event temp:wall_temp?singletemperature
 				action do
+					wall_gotTemp = true
 					temp_wall = temp.t
 					UpdateHeaters()
 				end
