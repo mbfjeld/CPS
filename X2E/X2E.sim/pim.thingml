@@ -36,7 +36,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 		sends set_id, set_temperature,  SwitchOff, SwitchOn
 	}
 	provided port door_input {
-		receives opened, shut, locked
+		receives singleopened, singleshut, singlelocked
 	}
 	
 	property tmrature:Double   // the requested temperature for the room
@@ -203,7 +203,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 					UpdateHeaters()
 				end
 				transition -> DoorLocked
-				event door_input?locked
+				event door_input?singlelocked
 				action do
 					if(not window1_state or not window2_state) do
 						println("WARNING, DOOR LOCKED WITH WINDOW OPEN")
@@ -300,7 +300,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 				end
 				
 				transition -> DoorNotLocked
-				event door_input?opened
+				event door_input?singleopened
 			}		
 		} // end Running
 	} // end PIM_behavior
