@@ -102,6 +102,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 			event input?SwitchOn
 			action do
 			println("Window"+wid+": Got told to turn on heater")
+				heater_lastpim = true
 				if(not heater_state) do
 				heater_state = true
 				heater_output!SwitchOn(0)
@@ -112,6 +113,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 			event input?SwitchOff
 			action do
 			println("Window"+wid+": Got told to turn off heater")
+				heater_lastpim = false
 				if(heater_state) do
 				heater_state = false
 				heater_output!SwitchOff(0)
