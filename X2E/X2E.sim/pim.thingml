@@ -53,71 +53,74 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 	property temp_window2:Double = 0
 	
 	// Rooms average temperature
+	property viableTemps:Integer = 0
 	property avgTemp:Double = 0
 	
 	function UpdateHeaters() do
-		println("Calculating average temperature")
+		viableTemps = 0
 		
-		// Only wall is viable
-		if(not (window1_state and window1_gotTemp) and not (window2_state and window2_gotTemp)) do
-			println("Only wall is viable temperature")
-			avgTemp = temp_wall
+		// Check if the window temperature can be used for average calculation
+		if(window1_state and window1_gotTemp) do
+		viableTemps++
+		end else do 
+		// If the temperature is not viable, set it to 0 so the average equation is still the same.
+		temp_window1 = 0
 		end
 		
-		// Window 1 and wall is viable
-		else if((window1_state and window1_gotTemp) and not (window2_state and window2_gotTemp)) do
-			println("Wall and window1 are viable temperatures")
-			avgTemp = (temp_wall + temp_window1)/2
+		// Check if the window temperature can be used for average calculation
+		if(window2_state and window2_gotTemp) do
+		viableTemps++
+		end else do 
+		// If the temperature is not viable, set it to 0 so the average equation is still the same.
+		temp_window2 = 0
 		end
 		
-		// Window 2 and wall is viable
-		else if(not (window1_state and window1_gotTemp) and (window2_state and window2_gotTemp)) do
-			println("Wall and window2 are viable temperatures")
-			avgTemp = (temp_wall + temp_window2)/2
-		end
+		// Check if the window temperature can be used for average calculation
+		if(wall_gotTemp) do
+		viableTemps++
+		end else do 
+		// If the temperature is not viable, set it to 0 so the average equation is still the same.
+		temp_wall = 0
+		end 
 		
-		// Both windows and wall is viable
-		else if((window1_state and window1_gotTemp) and (window2_state and window2_gotTemp)) do
-			println("Wall and both windows are viable temperatures")
-			avgTemp = (temp_wall + temp_window1 + temp_window2)/3
-		end
+		// Only calculate average temp and adjust heaters if we have gotten at least one temperature from the room.
+		if (viableTemps > 0) do
+			avgTemp = (temp_wall + temp_window1 + temp_window2)/viableTemps
 		
-		println("Average Temp is = " + avgTemp)
-		thermostat_output!prompt("Average Temp is = " + avgTemp)
+			thermostat_output!prompt("Average Temp is = " + avgTemp)
 		
-		
-		println("Turning heaters on or off")
-		// Initial
-		if(temp_up_or_down == 0) do
-			if(avgTemp>=tmrature-1) do
-				temp_up_or_down = 1
+			// Initial
+			if(temp_up_or_down == 0) do
+				if(avgTemp>=tmrature-1) do
+					temp_up_or_down = 1
+				end
+				
+				else do
+					wall_heater!SwitchOn(0)
+					window1_output!SwitchOn(1)
+					window2_output!SwitchOn(2)
+					temp_up_or_down = 2
+				end
 			end
-			// Only turn on if we have gotten any temperatures
-			else if(window1_gotTemp or window2_gotTemp or wall_gotTemp) do
-				wall_heater!SwitchOn(0)
-				window1_output!SwitchOn(1)
-				window2_output!SwitchOn(2)
-				temp_up_or_down = 2
-			end
-		end
 						
-		// Decrease Temp
-		else if(temp_up_or_down == 1) do
-			if(avgTemp<tmrature-1) do
-				wall_heater!SwitchOn(0)
-				window1_output!SwitchOn(1)
-				window2_output!SwitchOn(2)
-				temp_up_or_down = 2
+			// Decrease Temp
+			else if(temp_up_or_down == 1) do
+				if(avgTemp<tmrature-1) do
+					wall_heater!SwitchOn(0)
+					window1_output!SwitchOn(1)
+					window2_output!SwitchOn(2)
+					temp_up_or_down = 2
+				end
 			end
-		end
 						
-		// Increase Temp
-		else if(temp_up_or_down == 2) do
-			if(avgTemp>tmrature+1) do
-				wall_heater!SwitchOff(0)
-				window1_output!SwitchOff(1)
-				window2_output!SwitchOff(2)
-				temp_up_or_down = 1
+			// Increase Temp
+			else if(temp_up_or_down == 2) do
+				if(avgTemp>tmrature+1) do
+					wall_heater!SwitchOff(0)
+					window1_output!SwitchOff(1)
+					window2_output!SwitchOff(2)
+					temp_up_or_down = 1
+				end
 			end
 		end
 	end
@@ -178,7 +181,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 				event door_input?singlelocked
 				action do
 					if(not window1_state or not window2_state) do
-						println("WARNING, DOOR LOCKED WITH WINDOW OPEN")
 						if(window1_state and not window2_state) do
 							thermostat_output!prompt("WARNING: Window 2 is open!")
 						end
@@ -209,7 +211,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 				end
 			}
 			
-			state DoorLocked {			
+			state DoorLocked {
 				transition -> DoorLocked
 				event temp:wall_temp?singletemperature
 				action do
@@ -240,7 +242,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 						window2_state = false
 					end
 					UpdateHeaters()
-					println("ALARM: Window" + opened.wid + " was opened while in a locked state!")
 					thermostat_output!prompt("ALARM: Window" + opened.wid + " was opened!")
 				end
 				transition -> DoorLocked
@@ -268,7 +269,6 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 					end
 					window1_output!set_temperature(tmrature)
 					window2_output!set_temperature(tmrature)
-					thermostat_output!prompt("Temperature sat to " + tmrature)
 					UpdateHeaters()
 				end
 				
@@ -278,3 +278,225 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 		} // end Running
 	} // end PIM_behavior
 } // end PIM thing
+
+
+thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
+	provided port temp_input {receives singletemperature}
+	provided port magnet_input {receives singleopened, singleshut}
+	provided port input {receives set_id,SwitchOn, SwitchOff, set_temperature}
+	required port output {sends temperature, opened, shut}
+	required port heater_output {sends SwitchOn, SwitchOff}
+	required port debug_settemp {sends set_temperature}
+	
+	property wid:Integer = -1
+	property window_state:Boolean = false
+	property heater_state:Boolean = false
+	property heater_lastpim:Boolean = false
+	property sat_temperature:Double = 0
+	property last_temperature:Double = 0
+	
+	statechart behaviourWindow init Init {
+		state Init {
+			transition -> Running
+			event id:input?set_id
+			action do
+				wid = id.wid
+			end
+		}
+		
+		
+		state Running{
+			transition -> Running
+			event temp:input?set_temperature
+			action do
+				sat_temperature = temp.t
+				debug_settemp!set_temperature(sat_temperature)
+			end
+			
+			transition -> Running
+			event temp:temp_input?singletemperature
+			action do
+				last_temperature = temp.t
+				if(sat_temperature >= 10) do
+					if((sat_temperature - 7) > last_temperature) do
+						if(not heater_state) do
+						heater_state = true
+						heater_output!SwitchOn(0)
+						end
+					end
+					else if(window_state) do
+						if(heater_state) do
+						heater_state = false
+						heater_output!SwitchOff(0)
+						end
+					end
+				end
+				output!temperature(wid,"Window " + wid,last_temperature)
+			end
+			
+			transition -> Running
+			event magnet_input?singleopened
+			guard not window_state
+			action do
+				window_state = true
+				if(((sat_temperature - 7) < last_temperature) and heater_state) do
+					heater_state = false
+					heater_output!SwitchOff(0)
+				end
+				output!opened(wid)
+			end
+			
+			transition -> Running
+			event magnet_input?singleshut
+			guard window_state
+			action do
+				window_state = false
+				output!shut(wid)
+				if(heater_lastpim and not heater_state) do
+				heater_state = true
+				heater_output!SwitchOn(0)
+				end
+				else if(not heater_lastpim and heater_state) do
+				heater_state = false
+				heater_output!SwitchOff(0)
+				end
+			end
+			
+			transition -> Running
+			event input?SwitchOn
+			action do
+				heater_lastpim = true
+				if(not heater_state) do
+				heater_state = true
+				heater_output!SwitchOn(0)
+				end
+			end
+			
+			transition -> Running
+			event input?SwitchOff
+			action do
+				heater_lastpim = false
+				if(heater_state) do
+				heater_state = false
+				heater_output!SwitchOff(0)
+				end
+			end
+		}
+		
+		// Event Driven Approach Attempt
+/* 
+ * Problem with using states for window environment
+ * 
+ * The heater can be both on or off when the window is open. 
+ * Going from Closed : On to Open : On is not possible as you cannot decide on what sub-state to transition to.
+ * 
+ * It seems the code is the most compact and readable using only a single state and a data driven approach.
+ * 
+ * 
+ * Here is the attempted event based approach using WindowOpen and WindowClosed states with HeaterOn and HeaterOff sub-states.
+
+		composite state WindowClosed init HeaterOff {
+			
+			state HeaterOff {
+			on entry do
+			if(heater_state) do 
+				heater_state = false
+				heater_output!SwitchOff(0)
+			end
+			end
+				
+			transition -> HeaterOff
+			event temp:input?set_temperature
+			action do
+				sat_temperature = temp.t
+				debug_settemp!set_temperature(sat_temperature)
+			end
+			
+			transition -> HeaterOff
+			event temp:temp_input?singletemperature
+			action do
+				last_temperature = temp.t
+				// Turn on the heater if the temperature is more than 7 degrees lower than the sat temperature (if the temperature is sat).
+				if((sat_temperature >= 10) and (sat_temperature - 7) > last_temperature) do
+					heater_state = true
+					heater_output!SwitchOn(0)
+				end
+				output!temperature(wid,"Window " + wid,last_temperature)
+			end
+			
+			transition -> HeaterOn
+			event input?SwitchOn
+			action do
+				heater_lastpim = true
+			end
+			
+			}
+			
+			state HeaterOn {
+			on entry do
+			if(not heater_state) do
+				heater_state = true
+				heater_output!SwitchOn(0)
+			end
+			end
+				
+			transition -> HeaterOn
+			event temp:input?set_temperature
+			action do
+				sat_temperature = temp.t
+				debug_settemp!set_temperature(sat_temperature)
+			end
+			
+			transition -> HeaterOn
+			event temp:temp_input?singletemperature
+			action do
+				last_temperature = temp.t
+				output!temperature(wid,"Window " + wid,last_temperature)
+			end
+			
+			transition -> HeaterOff
+			event input?SwitchOff
+			action do
+				heater_lastpim = false
+			end
+			}
+		
+		transition -> WindowOpen
+			event magnet_input?singleopened
+			guard ((sat_temperature - 7) < last_temperature) and heater_state
+			action do
+				heater_state = false
+				heater_output!SwitchOff(0)
+			end
+			
+		}
+		
+		composite state WindowOpen init HeaterOff {
+			on entry do
+				output!opened(wid)
+			end
+			
+			
+			state HeaterOff {
+				on entry do
+				if(heater_state) do 
+					heater_state = false
+					heater_output!SwitchOff(0)
+				end
+				end
+				
+			}
+			
+			state HeaterOn {
+				on entry do
+				if(not heater_state) do
+					heater_state = true
+					heater_output!SwitchOn(0)
+				end
+				end
+				
+			}
+		}
+*/
+	}
+}

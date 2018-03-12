@@ -4,9 +4,6 @@ import "datatypes.thingml"
 
 // General
 thing fragment GeneralMsg {
-	message sensorinfo(model:String,proto:String,sid:Integer,dataTypes:Integer,temperature:Double, humidity:Long, timeStamp:Long);
-	message deviceinfo(did:Integer,name:String,model:String,proto:String, ttype:String,meth:Integer,lastCmd:String,lastValue:Long);
-	message set_polling_interval(intrvl:Integer) // how often the PSM will poll the thermometers in milliseconds
 	message prompt(txt:String) // meant to send a textual message out to the user
 }
 
@@ -18,13 +15,8 @@ thing fragment TemperatureMsg {
     message singletemperature(t:Double);
 }
 
-// Devices actuators in general
-thing fragment DeviceGeneral {
-	message add_device(did:Integer);
-}
-
 // On/Off actuators
-thing fragment OnOffMsg includes DeviceGeneral{
+thing fragment OnOffMsg {
 	message SwitchOn(did:Integer);
 	message SwitchOff(did:Integer);
 }
