@@ -34,8 +34,8 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 		receives singleopened, singlelocked
 	}
 	
-	property tmrature:Double = 0   // the requested temperature for the room
-	
+	// Temperature Control	
+	property tmrature:Double = 0 
 	property temp_up_or_down:Integer = 0 // 0 = no on or off message sent yet, 1 = off 2 = on;
 	
 	// Magnet swtiches states
@@ -104,23 +104,19 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 			end
 						
 			// Decrease Temp
-			else if(temp_up_or_down == 1) do
-				if(avgTemp<tmrature-1) do
-					wall_heater!SwitchOn(0)
-					window1_output!SwitchOn(1)
-					window2_output!SwitchOn(2)
-					temp_up_or_down = 2
-				end
+			else if(temp_up_or_down == 1 and avgTemp < tmrature - 1) do
+				wall_heater!SwitchOn(0)
+				window1_output!SwitchOn(1)
+				window2_output!SwitchOn(2)
+				temp_up_or_down = 2
 			end
 						
 			// Increase Temp
-			else if(temp_up_or_down == 2) do
-				if(avgTemp>tmrature+1) do
-					wall_heater!SwitchOff(0)
-					window1_output!SwitchOff(1)
-					window2_output!SwitchOff(2)
-					temp_up_or_down = 1
-				end
+			else if(temp_up_or_down == 2 and avgTemp > tmrature + 1) do
+				wall_heater!SwitchOff(0)
+				window1_output!SwitchOff(1)
+				window2_output!SwitchOff(2)
+				temp_up_or_down = 1
 			end
 		end
 	end
@@ -184,7 +180,7 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 						if(window1_state and not window2_state) do
 							thermostat_output!prompt("WARNING: Window 2 is open!")
 						end
-						if(not window1_state and window2_state) do
+						else if(not window1_state and window2_state) do
 							thermostat_output!prompt("WARNING: Window 1 is open!")
 						end
 						else do
