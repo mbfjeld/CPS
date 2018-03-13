@@ -9,26 +9,35 @@ import "psm_datatypes_sim.thingml"
 import "pim_messages.thingml"
 
 thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
+	provided port initial {
+		receives Ready
+	}
 	required port thermostat_output {
 		sends prompt
 	}
 	provided port thermostat_input {
 		receives set_temperature
 	}
-	provided port wall_temp {
-		receives singletemperature
+	provided port thermo_input {
+		receives temperature
 	}
 	required port wall_heater {
 		sends SwitchOn, SwitchOff
 	}
 	required port window1_output {
-		sends set_id, set_temperature, SwitchOff, SwitchOn
+		sends set_id, set_temperature, singletemperature, SwitchOff, SwitchOn
+	}
+	required port thermo_output {
+		sends add_thermometer
+	}
+	required port device_output {
+		sends add_device
 	}
 	provided port windows_input {
-		receives opened, shut, temperature
+		receives opened, shut
 	}
 	required port window2_output {
-		sends set_id, set_temperature,  SwitchOff, SwitchOn
+		sends set_id, set_temperature, singletemperature,  SwitchOff, SwitchOn
 	}
 	provided port door_input {
 		receives singleopened, singlelocked
@@ -55,37 +64,33 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 	// Rooms average temperature
 	property viableTemps:Integer = 0
 	property avgTemp:Double = 0
+	property tempSum:Double = 0
 	
 	function UpdateHeaters() do
 		viableTemps = 0
+		tempSum = 0
 		
 		// Check if the window temperature can be used for average calculation
 		if(window1_state and window1_gotTemp) do
 		viableTemps++
-		end else do 
-		// If the temperature is not viable, set it to 0 so the average equation is still the same.
-		temp_window1 = 0
+		tempSum = tempSum + temp_window1
 		end
 		
 		// Check if the window temperature can be used for average calculation
 		if(window2_state and window2_gotTemp) do
 		viableTemps++
-		end else do 
-		// If the temperature is not viable, set it to 0 so the average equation is still the same.
-		temp_window2 = 0
+		tempSum = tempSum + temp_window2
 		end
 		
 		// Check if the window temperature can be used for average calculation
 		if(wall_gotTemp) do
 		viableTemps++
-		end else do 
-		// If the temperature is not viable, set it to 0 so the average equation is still the same.
-		temp_wall = 0
-		end 
+		tempSum = tempSum + temp_wall
+		end
 		
 		// Only calculate average temp and adjust heaters if we have gotten at least one temperature from the room.
 		if (viableTemps > 0) do
-			avgTemp = (temp_wall + temp_window1 + temp_window2)/viableTemps
+			avgTemp = tempSum/viableTemps
 		
 			thermostat_output!prompt("Average Temp is = " + avgTemp)
 		
@@ -121,33 +126,44 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 		end
 	end
 	
-	statechart PIM_behavior init Running {
+	statechart PIM_behavior init Init {
 		
+		state Init {
+			transition -> Running
+			event initial?Ready
+		}
+		
+
 		composite state Running init DoorNotLocked keeps history {
-		on entry do
+			on entry do
+			// Register heater and thermometer
+			thermo_output!add_thermometer(0, "Wall Thermometer")
+			device_output!add_device(0)
 			// Add windows
 			window1_output!set_id(1)
 			window2_output!set_id(2)
-		end	
-					
+			
+			wall_heater!SwitchOff(0)
+			end	
+		
 			state DoorNotLocked {
 				transition -> DoorNotLocked
-				event temp:wall_temp?singletemperature
+				event temp:thermo_input?temperature
 				action do
+				println("GOT TEMP id:" + temp.id)
+				if(temp.id == 0) do
 					wall_gotTemp = true
-					temp_wall = temp.t
-					UpdateHeaters()
+					temp_wall = temp.t				
 				end
-				transition -> DoorNotLocked
-				event temp:windows_input?temperature
-				action do
-				if(temp.id == 1) do
-				window1_gotTemp = true
-				temp_window1 = temp.t
+				else if(temp.id == 1) do
+					window1_gotTemp = true
+					temp_window1 = temp.t
+					window1_output!singletemperature(temp_window1)
 				end
 				else if (temp.id == 2) do
-				window2_gotTemp = true
-				temp_window2 = temp.t
+					window2_gotTemp = true
+					temp_window2 = temp.t
+					window2_output!singletemperature(temp_window2)
 				end
 					UpdateHeaters()
 				end
@@ -209,22 +225,21 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 			
 			state DoorLocked {
 				transition -> DoorLocked
-				event temp:wall_temp?singletemperature
+				event temp:thermo_input?temperature
 				action do
+				if(temp.id == 0) do
 					wall_gotTemp = true
-					temp_wall = temp.t
-					UpdateHeaters()
+					temp_wall = temp.t				
 				end
-				transition -> DoorLocked
-				event temp:windows_input?temperature
-				action do
-				if(temp.id == 1) do
-				window1_gotTemp = true
-				temp_window1 = temp.t
+				else if(temp.id == 1) do
+					window1_gotTemp = true
+					temp_window1 = temp.t
+					window1_output!singletemperature(temp_window1)
 				end
 				else if (temp.id == 2) do
-				window2_gotTemp = true
-				temp_window2 = temp.t
+					window2_gotTemp = true
+					temp_window2 = temp.t
+					window2_output!singletemperature(temp_window2)
 				end
 					UpdateHeaters()
 				end
@@ -277,10 +292,9 @@ thing PIM includes GeneralMsg, TemperatureMsg, OnOffMsg, WindowMsg, MagnetMsg {
 
 
 thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
-	provided port temp_input {receives singletemperature}
 	provided port magnet_input {receives singleopened, singleshut}
-	provided port input {receives set_id,SwitchOn, SwitchOff, set_temperature}
-	required port output {sends temperature, opened, shut}
+	provided port input {receives set_id,SwitchOn, singletemperature, SwitchOff, set_temperature}
+	required port output {sends opened, shut}
 	required port heater_output {sends SwitchOn, SwitchOff}
 	required port debug_settemp {sends set_temperature}
 	
@@ -300,7 +314,6 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 			end
 		}
 		
-		
 		state Running{
 			transition -> Running
 			event temp:input?set_temperature
@@ -310,24 +323,23 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 			end
 			
 			transition -> Running
-			event temp:temp_input?singletemperature
+			event temp:input?singletemperature
 			action do
 				last_temperature = temp.t
 				if(sat_temperature >= 10) do
 					if((sat_temperature - 7) > last_temperature) do
 						if(not heater_state) do
 						heater_state = true
-						heater_output!SwitchOn(0)
+						heater_output!SwitchOn(wid)
 						end
 					end
 					else if(window_state) do
 						if(heater_state) do
 						heater_state = false
-						heater_output!SwitchOff(0)
+						heater_output!SwitchOff(wid)
 						end
 					end
 				end
-				output!temperature(wid,"Window " + wid,last_temperature)
 			end
 			
 			transition -> Running
@@ -337,7 +349,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 				window_state = true
 				if(((sat_temperature - 7) < last_temperature) and heater_state) do
 					heater_state = false
-					heater_output!SwitchOff(0)
+					heater_output!SwitchOff(wid)
 				end
 				output!opened(wid)
 			end
@@ -350,11 +362,11 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 				output!shut(wid)
 				if(heater_lastpim and not heater_state) do
 				heater_state = true
-				heater_output!SwitchOn(0)
+				heater_output!SwitchOn(wid)
 				end
 				else if(not heater_lastpim and heater_state) do
 				heater_state = false
-				heater_output!SwitchOff(0)
+				heater_output!SwitchOff(wid)
 				end
 			end
 			
@@ -364,7 +376,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 				heater_lastpim = true
 				if(not heater_state) do
 				heater_state = true
-				heater_output!SwitchOn(0)
+				heater_output!SwitchOn(wid)
 				end
 			end
 			
@@ -374,7 +386,7 @@ thing Window includes WindowMsg, TemperatureMsg, OnOffMsg, MagnetMsg{
 				heater_lastpim = false
 				if(heater_state) do
 				heater_state = false
-				heater_output!SwitchOff(0)
+				heater_output!SwitchOff(wid)
 				end
 			end
 		}

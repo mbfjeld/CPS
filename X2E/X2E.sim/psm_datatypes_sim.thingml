@@ -1,14 +1,10 @@
 // Here we define some types that are PSM specific and will be dependent on kick-down
 
-/* object Sensor
+object Sensor
 @java_type "net.jstick.api.Sensor";
 
 object Device
-@java_type "net.jstick.api.Device"; */
+@java_type "net.jstick.api.Device";
 
 object Tellstick
-@java_type "String"; // SIMULATION
-
-
-
-
+@java_type "net.jstick.api.Tellstick";

@@ -1,7 +1,17 @@
 import "psm_sim.thingml"
 import "pim.thingml"
+import "timer.thingml"
 
-configuration CPS {
+configuration CPS 
+@maven_dep "<dependency>
+<groupId>net.juppi</groupId>
+<artifactId>jstick-api</artifactId>
+<version>1.7</version>
+</dependency>"{
+	instance Tm:TellstickManager
+	instance Ts:ThermometerSet
+	instance Ds:OnOffSet
+	instance timer:TimerJava
 	instance pim:PIM
 	instance window1 : Window
 	instance window2 : Window
@@ -10,27 +20,44 @@ configuration CPS {
 	instance room_sim : RoomSim
 	instance window1_sim : WindowSim
 	instance window2_sim : WindowSim
+	instance temp_sim : TempSim
+	
+	// Tm Outputs
+	connector Tm.to_T1 => Ts.initial
+	connector Tm.to_gdg => room_sim.show_gadgets
+	connector Tm.to_onoff1 => Ds.initial
+	
+	// Ts Timer
+	connector Ts.timer => timer.timer
 	
 	// PIM Inputs
-	connector room_sim.give_values => pim.wall_temp
+	connector Tm.to_PIM => pim.initial
+	connector Ts.provide_val => pim.thermo_input
+	//connector room_sim.give_values => pim.thermo_input
 	connector room_sim.give_values => pim.thermostat_input
 	connector room_sim.give_values => pim.door_input
 	connector window1.output => pim.windows_input
 	connector window2.output => pim.windows_input
 	
 	// PIM Outputs
-	connector pim.wall_heater => room_sim.show_onoff
+	connector pim.device_output => Ds.require_val
+	connector pim.thermo_output => Ts.require_val
+	
+	connector pim.wall_heater => Ds.require_val
+	//connector pim.wall_heater => room_sim.show_onoff
 	connector pim.thermostat_output => room_sim.messages
 	connector pim.window1_output => window1.input
 	connector pim.window2_output => window2.input
 	
-	// Window 1 Outputs
+	// Simulate window Temps
+	connector temp_sim.give_values => pim.thermo_input
+	
+	// Window 1 Outputs	
 	connector window1.heater_output => window1_sim.show_onoff
 	connector window1.debug_settemp => window1_sim.show_temp
 	
 	// Window 1 Inputs
 	connector window1_sim.give_values => window1.magnet_input
-	connector window1_sim.give_values => window1.temp_input
 
 	// Window 2 Outputs
 	connector window2.heater_output => window2_sim.show_onoff
@@ -38,5 +65,4 @@ configuration CPS {
 	
 	// Window 2 Inputs
 	connector window2_sim.give_values => window2.magnet_input
-	connector window2_sim.give_values => window2.temp_input
 }
